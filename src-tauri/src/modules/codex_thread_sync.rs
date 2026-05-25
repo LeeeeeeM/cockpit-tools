@@ -91,6 +91,12 @@ struct ThreadSyncPlanItem {
 }
 
 #[derive(Debug, Clone)]
+struct ThreadSyncWriteResult {
+    backup_dir: PathBuf,
+    metadata_rebuild_failed: bool,
+}
+
+#[derive(Debug, Clone)]
 struct RolloutMergeLine {
     line: String,
     timestamp_ms: Option<i128>,
@@ -142,6 +148,7 @@ pub fn sync_threads_across_instances() -> Result<CodexInstanceThreadSyncSummary,
     let mut total_updated_thread_count = 0usize;
     let mut project_index_repaired_instance_count = 0usize;
     let mut mutated_running_instance_count = 0usize;
+    let mut metadata_rebuild_failed_instance_count = 0usize;
 
     for instance in &instances {
         let existing_snapshots = snapshots_by_instance
@@ -199,12 +206,17 @@ pub fn sync_threads_across_instances() -> Result<CodexInstanceThreadSyncSummary,
             continue;
         }
 
-        let backup_dir = sync_thread_plan_to_instance(instance, &plan_items, &expected_snapshots)?;
+        let write_result =
+            sync_thread_plan_to_instance(instance, &plan_items, &expected_snapshots)?;
+        let backup_dir = write_result.backup_dir;
         let backup_dir_string = backup_dir.to_string_lossy().to_string();
         backup_dirs.push(backup_dir_string.clone());
         mutated_instance_count += 1;
         if repairs_project_index {
             project_index_repaired_instance_count += 1;
+        }
+        if write_result.metadata_rebuild_failed {
+            metadata_rebuild_failed_instance_count += 1;
         }
         total_synced_thread_count += plan_items.len();
         total_added_thread_count += added_thread_count;
@@ -246,6 +258,12 @@ pub fn sync_threads_across_instances() -> Result<CodexInstanceThreadSyncSummary,
             total_updated_thread_count
         )
     };
+
+    let message = append_metadata_rebuild_warning(
+        message,
+        metadata_rebuild_failed_instance_count,
+        total_synced_thread_count,
+    );
 
     Ok(CodexInstanceThreadSyncSummary {
         instance_count: instances.len(),
@@ -365,7 +383,8 @@ pub fn sync_sessions_to_instance(
         });
     }
 
-    let backup_dir = sync_missing_threads_to_instance(&target, &snapshots_to_sync)?;
+    let write_result = sync_missing_threads_to_instance(&target, &snapshots_to_sync)?;
+    let backup_dir = write_result.backup_dir;
     let synced_session_count = snapshots_to_sync.len();
     let message = if running {
         format!(
@@ -378,6 +397,11 @@ pub fn sync_sessions_to_instance(
             synced_session_count, target.name
         )
     };
+    let message = append_metadata_rebuild_warning(
+        message,
+        usize::from(write_result.metadata_rebuild_failed),
+        synced_session_count,
+    );
 
     Ok(CodexInstanceTargetThreadSyncSummary {
         requested_session_count: requested_ids.len(),
@@ -563,7 +587,7 @@ fn session_meta_cwd(meta: &JsonValue) -> Option<String> {
 fn sync_missing_threads_to_instance(
     target: &CodexSyncInstance,
     snapshots: &[ThreadSnapshot],
-) -> Result<PathBuf, String> {
+) -> Result<ThreadSyncWriteResult, String> {
     let plan_items = snapshots
         .iter()
         .cloned()
@@ -580,7 +604,7 @@ fn sync_thread_plan_to_instance(
     target: &CodexSyncInstance,
     plan_items: &[ThreadSyncPlanItem],
     workspace_snapshots: &[ThreadSnapshot],
-) -> Result<PathBuf, String> {
+) -> Result<ThreadSyncWriteResult, String> {
     let backup_dir = backup_instance_files(&target.data_dir)?;
     let target_provider =
         modules::codex_session_visibility::read_history_visibility_provider_for_dir(
@@ -592,23 +616,51 @@ fn sync_thread_plan_to_instance(
         rewrite_rollout_provider_for_target(&target_rollout_path, &target_provider)?;
     }
 
+    let mut metadata_rebuild_failed = false;
     if !plan_items.is_empty() {
         let snapshots = plan_items
             .iter()
             .map(|item| item.snapshot.clone())
             .collect::<Vec<_>>();
         upsert_session_index_entries(&target.data_dir, &snapshots)?;
-        modules::codex_official_app_server::rebuild_thread_metadata(&target.data_dir).map_err(
-            |error| {
-                format!(
-                    "已同步 rollout/session_index，但官方 Codex 重建会话索引失败 ({}): {}",
-                    target.name, error
-                )
-            },
-        )?;
+        metadata_rebuild_failed = !try_rebuild_thread_metadata(target);
     }
     update_global_state_thread_workspaces(&target.data_dir, workspace_snapshots)?;
-    Ok(backup_dir)
+    Ok(ThreadSyncWriteResult {
+        backup_dir,
+        metadata_rebuild_failed,
+    })
+}
+
+fn try_rebuild_thread_metadata(target: &CodexSyncInstance) -> bool {
+    match modules::codex_official_app_server::rebuild_thread_metadata(&target.data_dir) {
+        Ok(()) => true,
+        Err(error) => {
+            eprintln!(
+                "Codex thread sync: skipped official metadata rebuild for {} ({}): {}",
+                target.name,
+                target.data_dir.display(),
+                error
+            );
+            false
+        }
+    }
+}
+
+fn append_metadata_rebuild_warning(
+    message: String,
+    failed_instance_count: usize,
+    synced_thread_count: usize,
+) -> String {
+    if failed_instance_count == 0 || synced_thread_count == 0 {
+        return message;
+    }
+
+    let message = message.replace("，并已触发官方 Codex 重建会话索引", "");
+    format!(
+        "{}；{} 个实例未能触发官方 Codex 重建会话索引，但 rollout/session_index 已同步完成",
+        message, failed_instance_count
+    )
 }
 
 fn merge_thread_snapshots(snapshots: &[ThreadSnapshot]) -> Result<ThreadSnapshot, String> {
