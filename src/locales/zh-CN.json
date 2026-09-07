@@ -2192,6 +2192,14 @@
     "other_group": "其他模型"
   },
   "codex": {
+    "teamHistory": {
+      "title": "原 Team 席位额度（本地快照）",
+      "unknown": "暂无历史重置时间",
+      "hint": "移除席位前的剩余额度，不代表当前可用额度",
+      "elapsed": "预计已重置，恢复席位后验证",
+      "resetIn": "预计 {{duration}} 后重置",
+      "observed": "快照时间：{{time}}"
+    },
     "title": "Codex 账号管理",
     "oauthPolicy": {
       "globalTitle": "允许第三方客户端",

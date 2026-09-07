@@ -245,6 +245,8 @@ pub struct CodexAccount {
     pub last_client_auth_instance_id: Option<String>,
     pub quota: Option<CodexQuota>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub team_quota_history: Option<CodexTeamQuotaHistory>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quota_error: Option<CodexQuotaErrorInfo>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub usage_updated_at: Option<i64>,
@@ -289,6 +291,19 @@ pub struct CodexAgentIdentity {
     pub plan_type: Option<String>,
     #[serde(default, alias = "chatgptAccountIsFedramp")]
     pub chatgpt_account_is_fedramp: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodexTeamQuotaHistory {
+    pub user_id: String,
+    pub account_id: String,
+    pub observed_at: i64,
+    pub hourly_reset_time: Option<i64>,
+    pub weekly_reset_time: Option<i64>,
+    #[serde(default)]
+    pub hourly_percentage: Option<i32>,
+    #[serde(default)]
+    pub weekly_percentage: Option<i32>,
 }
 
 /// Codex 配额数据（5小时配额 + 周配额）
@@ -471,6 +486,64 @@ pub struct CodexAuthData {
 }
 
 impl CodexAccount {
+    pub fn remember_team_quota(&mut self) {
+        let (Some(user_id), Some(account_id)) = (&self.user_id, &self.account_id) else {
+            self.team_quota_history = None;
+            return;
+        };
+        if self
+            .team_quota_history
+            .as_ref()
+            .is_some_and(|h| h.user_id != *user_id || h.account_id != *account_id)
+        {
+            self.team_quota_history = None;
+        }
+        let Some(quota) = &self.quota else { return };
+        let Some(raw) = &quota.raw_data else { return };
+        // Use the response identity and plan, not a subsequently refreshed token label.
+        if raw.get("plan_type").and_then(|v| v.as_str()) != Some("team")
+            || raw.get("user_id").and_then(|v| v.as_str()) != Some(user_id.as_str())
+            || raw.get("account_id").and_then(|v| v.as_str()) != Some(account_id.as_str())
+        {
+            return;
+        }
+        let Some(observed_at) = self.usage_updated_at.filter(|v| *v > 0) else {
+            return;
+        };
+        if self
+            .team_quota_history
+            .as_ref()
+            .is_some_and(|h| h.observed_at > observed_at)
+        {
+            return;
+        }
+        let hourly = quota
+            .hourly_reset_time
+            .filter(|v| *v > 0 && quota.hourly_window_present != Some(false));
+        let weekly = quota
+            .weekly_reset_time
+            .filter(|v| *v > 0 && quota.weekly_window_present != Some(false));
+        if hourly.is_none() && weekly.is_none() {
+            return;
+        }
+        self.team_quota_history = Some(CodexTeamQuotaHistory {
+            user_id: user_id.clone(),
+            account_id: account_id.clone(),
+            observed_at,
+            hourly_reset_time: hourly,
+            weekly_reset_time: weekly,
+            hourly_percentage: hourly.map(|_| quota.hourly_percentage.clamp(0, 100)),
+            weekly_percentage: weekly.map(|_| quota.weekly_percentage.clamp(0, 100)),
+        });
+    }
+
+    pub fn replace_quota_preserving_team_history(&mut self, quota: CodexQuota, observed_at: i64) {
+        self.remember_team_quota();
+        self.quota = Some(quota);
+        self.usage_updated_at = Some(observed_at);
+        self.remember_team_quota();
+    }
+
     pub fn new(id: String, email: String, tokens: CodexTokens) -> Self {
         let now = chrono::Utc::now().timestamp();
         Self {
@@ -526,6 +599,7 @@ impl CodexAccount {
             last_client_launch_at: None,
             last_client_auth_instance_id: None,
             quota: None,
+            team_quota_history: None,
             quota_error: None,
             usage_updated_at: None,
             subscription_query_last_attempt_at: None,
@@ -595,6 +669,111 @@ impl CodexAccount {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn history_account() -> CodexAccount {
+        let mut account = CodexAccount::new_api_key(
+            "test".into(),
+            "test@example.invalid".into(),
+            "test-only".into(),
+            CodexApiProviderMode::Custom,
+            None,
+            None,
+            None,
+            Vec::new(),
+        );
+        account.user_id = Some("user-a".into());
+        account.account_id = Some("space-a".into());
+        account
+    }
+
+    fn history_quota(plan: &str, reset: Option<i64>) -> CodexQuota {
+        serde_json::from_value(serde_json::json!({
+            "hourly_percentage": 0, "weekly_percentage": 10,
+            "hourly_reset_time": reset, "weekly_reset_time": reset.map(|v| v + 1000),
+            "hourly_window_present": reset.is_some(), "weekly_window_present": reset.is_some(),
+            "raw_data": {"plan_type": plan, "user_id": "user-a", "account_id": "space-a"}
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn team_history_survives_usage_based_transition_and_serialization() {
+        let mut account = history_account();
+        account.replace_quota_preserving_team_history(history_quota("team", Some(200)), 100);
+        account.replace_quota_preserving_team_history(
+            history_quota("self_serve_business_usage_based", None),
+            150,
+        );
+        let restored: CodexAccount =
+            serde_json::from_value(serde_json::to_value(account).unwrap()).unwrap();
+        let history = restored.team_quota_history.unwrap();
+        assert_eq!(history.hourly_reset_time, Some(200));
+        assert_eq!(history.observed_at, 100);
+        assert_eq!(restored.quota.unwrap().hourly_reset_time, None);
+    }
+
+    #[test]
+    fn team_history_recalibrates_but_rejects_other_spaces_and_old_samples() {
+        let mut account = history_account();
+        account.replace_quota_preserving_team_history(history_quota("team", Some(200)), 100);
+        account.replace_quota_preserving_team_history(history_quota("team", Some(300)), 150);
+        account.replace_quota_preserving_team_history(history_quota("team", Some(180)), 90);
+        assert_eq!(
+            account
+                .team_quota_history
+                .as_ref()
+                .unwrap()
+                .hourly_reset_time,
+            Some(300)
+        );
+        account.account_id = Some("space-b".into());
+        account.remember_team_quota();
+        assert!(account.team_quota_history.is_none());
+    }
+
+    #[test]
+    fn team_history_seeds_existing_quota_before_first_business_refresh() {
+        let mut account = history_account();
+        account.quota = Some(history_quota("team", Some(200)));
+        account.usage_updated_at = Some(100);
+        account.replace_quota_preserving_team_history(
+            history_quota("self_serve_business_usage_based", None),
+            150,
+        );
+        assert_eq!(
+            account.team_quota_history.unwrap().hourly_reset_time,
+            Some(200)
+        );
+        let mut unknown = history_account();
+        unknown.replace_quota_preserving_team_history(
+            history_quota("self_serve_business_usage_based", None),
+            150,
+        );
+        assert!(unknown.team_quota_history.is_none());
+    }
+
+    #[test]
+    fn team_history_rejects_wrong_user_and_missing_windows() {
+        let mut account = history_account();
+        let mut wrong_user = history_quota("team", Some(200));
+        wrong_user.raw_data.as_mut().unwrap()["user_id"] = serde_json::json!("user-b");
+        account.replace_quota_preserving_team_history(wrong_user, 100);
+        assert!(account.team_quota_history.is_none());
+        account.replace_quota_preserving_team_history(history_quota("team", None), 110);
+        assert!(account.team_quota_history.is_none());
+    }
+
+    #[test]
+    fn team_history_survives_quota_loss_without_inventing_a_new_window() {
+        let mut account = history_account();
+        account.replace_quota_preserving_team_history(history_quota("team", Some(200)), 100);
+        account.quota = None;
+        account.usage_updated_at = Some(500);
+        account.remember_team_quota();
+        let history = account.team_quota_history.unwrap();
+        assert_eq!(history.hourly_reset_time, Some(200));
+        assert_eq!(history.observed_at, 100);
+    }
 
     #[test]
     fn legacy_account_without_websocket_field_defaults_to_false() {
