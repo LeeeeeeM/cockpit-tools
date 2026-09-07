@@ -31,6 +31,8 @@ import {
   getAntigravityTierBadge,
   getQuotaClass,
   formatResetTimeDisplay,
+  isGcpTosAccount,
+  getAccountProjectId,
 } from '../utils/account'
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
@@ -3175,6 +3177,17 @@ export function useAccountsPageController({ onNavigate }: AccountsPageProps) {
             <span className={`tier-badge ${tierBadge.className}`}>
               {tierBadge.label}
             </span>
+            {isGcpTosAccount(account) && (() => {
+              const projectId = getAccountProjectId(account)
+              return (
+                <span
+                  className="tier-badge gcp-tos"
+                  title={projectId ? `project: ${projectId}` : t('accounts.badge.gcpTosTitle', 'GCP ToS account')}
+                >
+                  {t('accounts.badge.gcpTos', 'GCP ToS')}
+                </span>
+              )
+            })()}
             {isPendingAntigravityAccount(account) && (
               <span className="status-pill warning">{t('codex.pendingAuth.badge', '待授权')}</span>
             )}
@@ -3824,6 +3837,17 @@ export function useAccountsPageController({ onNavigate }: AccountsPageProps) {
                 <span className={`tier-badge ${tierBadge.className}`}>
                   {tierBadge.label}
                 </span>
+                {isGcpTosAccount(account) && (() => {
+                  const projectId = getAccountProjectId(account)
+                  return (
+                    <span
+                      className="tier-badge gcp-tos"
+                      title={projectId ? `project: ${projectId}` : t('accounts.badge.gcpTosTitle', 'GCP ToS account')}
+                    >
+                      {t('accounts.badge.gcpTos', 'GCP ToS')}
+                    </span>
+                  )
+                })()}
                 {(() => {
                   const vBadge = getVerificationBadge(account)
                   return vBadge ? (
