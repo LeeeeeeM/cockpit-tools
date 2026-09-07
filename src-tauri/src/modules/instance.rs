@@ -80,6 +80,10 @@ pub fn get_default_user_data_dir() -> Result<PathBuf, String> {
     modules::antigravity_paths::default_user_data_dir()
 }
 
+pub fn get_all_antigravity_user_data_dirs() -> Vec<PathBuf> {
+    modules::antigravity_paths::all_antigravity_user_data_dirs()
+}
+
 pub fn get_default_instances_root_dir() -> Result<PathBuf, String> {
     modules::antigravity_paths::managed_instances_root_dir()
 }

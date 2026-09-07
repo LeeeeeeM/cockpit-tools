@@ -648,8 +648,12 @@ pub async fn switch_account(
     let _ = modules::instance::update_default_pid(None);
 
     // 5. 进程完全退出后，执行磁盘级别的文件注入
-    // 5.1 将账号 Token 注入默认实例目录
-    modules::instance::inject_account_to_profile_with_account(&default_dir, &account)?;
+    // 5.1 将账号 Token 同步注入所有存在的 Antigravity 目录
+    for target_dir in modules::instance::get_all_antigravity_user_data_dirs() {
+        if let Err(e) = modules::instance::inject_account_to_profile_with_account(&target_dir, &account) {
+            modules::logger::log_warn(&format!("[Switch] 注入目录 {} 失败: {}", target_dir.display(), e));
+        }
+    }
 
     // 7. 启动 Antigravity IDE（带默认实例自定义启动参数；启动失败不阻断切号，保持原行为）
     modules::logger::log_info("正在启动 Antigravity IDE 默认实例...");
