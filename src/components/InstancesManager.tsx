@@ -3602,9 +3602,7 @@ export function InstancesManager<TAccount extends AccountLike>({
               {isCodexApp && editing && (
                 <div className="form-group instance-codex-quick-config">
                   <div className="instance-codex-quick-header">
-                    <label>
-                      {t("codex.experimentalModelCatalog.title", "可见模型")}
-                    </label>
+                    <label>{t("codex.modelManagement.title", "模型管理")}</label>
                     <button
                       type="button"
                       className="btn btn-secondary instance-codex-quick-open-btn"
@@ -3632,25 +3630,13 @@ export function InstancesManager<TAccount extends AccountLike>({
                       <div className="instance-codex-experimental-model">
                         <div className="instance-codex-experimental-model__copy">
                           <label htmlFor="instance-codex-experimental-model-catalog">
-                            {t(
-                              "codex.experimentalModelCatalog.title",
-                              "可见模型",
-                            )}
+                            {t("codex.modelManagement.title", "模型管理")}
                           </label>
                           <p className="form-hint">
-                            {t(
-                              "codex.experimentalModelCatalog.description",
-                              "统一管理可见模型、推理强度、上下文窗口和压缩阈值。",
-                            )}
+                            {formExperimentalModelCatalogEnabled
+                              ? t("codex.modelManagement.enabledDescription")
+                              : t("codex.modelManagement.disabledDescription")}
                           </p>
-                          {formExperimentalModelCatalogEnabled && (
-                            <p className="form-hint">
-                              {t(
-                                "codex.experimentalModelCatalog.enabledHint",
-                                "启用后使用当前可见模型列表，重启 Codex 生效。",
-                              )}
-                            </p>
-                          )}
                           {formExperimentalModelUnavailableMessage && (
                             <div className="form-error instance-codex-experimental-model__error">
                               {formExperimentalModelUnavailableMessage}
@@ -3664,9 +3650,33 @@ export function InstancesManager<TAccount extends AccountLike>({
                             checked={formExperimentalModelCatalogEnabled}
                             onChange={(event) => {
                               setFormCodexQuickConfigError(null);
-                              setFormExperimentalModelCatalogEnabled(
-                                event.target.checked,
-                              );
+                              const enabled = event.target.checked;
+                              if (enabled) {
+                                void confirmDialog(
+                                  t(
+                                    "codex.modelManagement.enableConfirmDescription",
+                                    "开启后，Codex 将以这里配置的模型目录为准。你可以添加、删除和调整模型，但模型列表不会再自动跟随官方变化。",
+                                  ),
+                                  {
+                                    title: t(
+                                      "codex.modelManagement.enableConfirmTitle",
+                                      "开启模型管理？",
+                                    ),
+                                    okLabel: t(
+                                      "codex.modelManagement.enableConfirmAction",
+                                      "开启并配置",
+                                    ),
+                                    cancelLabel: t("common.cancel", "取消"),
+                                    kind: "warning",
+                                  },
+                                ).then((confirmed) => {
+                                  if (confirmed) {
+                                    setFormExperimentalModelCatalogEnabled(true);
+                                  }
+                                });
+                                return;
+                              }
+                              setFormExperimentalModelCatalogEnabled(false);
                             }}
                             disabled={
                               actionLoading === editing.id ||

@@ -359,6 +359,14 @@
   color: var(--text-secondary);
 }
 
+.codex-team-quota-history {
+  grid-column: 1 / -1;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .codex-team-history-window {
   display: flex;
   flex-direction: column;

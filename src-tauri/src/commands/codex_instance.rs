@@ -22,9 +22,11 @@ use crate::modules;
 use super::codex_instance_app_exit::idle_codex_profile_dirs_for_app_exit;
 pub use super::codex_instance_app_exit::restore_mixed_model_profiles_for_app_exit;
 use super::codex_instance_model_catalog::{
-    apply_pending_model_catalog, read_pending_model_catalog, save_pending_model_catalog,
-    PENDING_MODEL_CATALOG_FILE,
+    apply_pending_model_catalog, read_pending_model_catalog, restore_pending_model_catalog,
+    save_pending_model_catalog,
 };
+#[cfg(test)]
+use super::codex_instance_model_catalog::PENDING_MODEL_CATALOG_FILE;
 use super::codex_instance_routing::{
     launch_mode_uses_desktop_runtime, model_routing_update_error,
     validate_instance_model_routing,
@@ -1302,8 +1304,6 @@ mod tests {
             model_id: "gpt-5".to_string(),
             display_name: "GPT-5".to_string(),
             reasoning_efforts: None,
-            context_window: None,
-            auto_compact_token_limit: None,
         }]
     }
 
@@ -1380,6 +1380,7 @@ mod tests {
             disabled,
             None, None, None, None,
             Some(true),
+            None, None, None,
             false,
             test_experimental_models(),
             None,
@@ -1455,14 +1456,15 @@ mod tests {
         let result = codex_save_instance_configuration(
             "pending".into(), None, None, None, None,
             Some(Some(CodexInstanceModelRouting { enabled: true, ..Default::default() })),
-            None, None, None, None, Some(true), true, test_experimental_models(), None,
+            None, None, None, None, Some(true), None, None, None,
+            true, test_experimental_models(), None,
         ).await;
         assert!(result.is_err(), "enabled routing must require a valid OAuth binding");
         assert_eq!(std::fs::read(path).unwrap(), before);
     }
 
     #[tokio::test]
-    async fn instance_configuration_save_preserves_context_window_settings() {
+    async fn instance_configuration_save_updates_context_override_with_routing() {
         let _lock = crate::modules::test_support::env_lock()
             .lock()
             .unwrap_or_else(|error| error.into_inner());
@@ -1483,6 +1485,9 @@ mod tests {
             None,
             None,
             Some(true),
+            Some(true),
+            Some(700_000),
+            None,
             false,
             test_experimental_models(),
             None,
@@ -1492,16 +1497,13 @@ mod tests {
 
         let content =
             std::fs::read_to_string(profile_dir.join("config.toml")).expect("read saved config");
-        assert!(content.contains("model_context_window = 1000000"));
-        assert!(content.contains("model_auto_compact_token_limit = 900000"));
+        assert!(content.contains("model_context_window = 700000"));
+        assert!(!content.contains("model_auto_compact_token_limit"));
         assert_eq!(
             saved.quick_config.detected_model_context_window,
-            Some(1_000_000)
+            Some(700_000)
         );
-        assert_eq!(
-            saved.quick_config.detected_auto_compact_token_limit,
-            Some(900_000)
-        );
+        assert_eq!(saved.quick_config.detected_auto_compact_token_limit, None);
     }
 
     #[tokio::test]
@@ -1542,6 +1544,9 @@ mod tests {
 
         let saved = codex_save_instance_configuration(
             instance_id.to_string(),
+            None,
+            None,
+            None,
             None,
             None,
             None,
@@ -1593,6 +1598,9 @@ mod tests {
             None,
             None,
             Some(true),
+            Some(true),
+            Some(700_000),
+            None,
             true,
             test_experimental_models(),
             None,
@@ -2181,44 +2189,110 @@ pub async fn codex_save_instance_configuration(
     app_speed: Option<CodexAppSpeed>,
     auto_sync_threads: Option<bool>,
     defer_bind_account_application: Option<bool>,
+    update_context_override: Option<bool>,
+    model_context_window: Option<i64>,
+    auto_compact_token_limit: Option<i64>,
     experimental_model_catalog_enabled: bool,
     experimental_model_catalog_models: Vec<CodexExperimentalModelDefinition>,
     experimental_model_catalog_default_model_id: Option<String>,
 ) -> Result<CodexInstanceConfigurationSaveResult, String> {
     let profile = resolve_instance_base_dir(&instance_id)?;
     if defer_bind_account_application == Some(true) && model_routing.is_some() {
-        let previous = read_pending_model_catalog(&profile)?;
-        let quick_config = save_pending_model_catalog(
+        let previous_pending_catalog = read_pending_model_catalog(&profile)?;
+        let previous_quick_config = codex_get_instance_quick_config(instance_id.clone()).await?;
+        let mut quick_config = save_pending_model_catalog(
             &profile, experimental_model_catalog_enabled,
             experimental_model_catalog_models, experimental_model_catalog_default_model_id,
         )?;
+        if update_context_override == Some(true) {
+            let context_profile = profile.clone();
+            let context_result = tauri::async_runtime::spawn_blocking(move || {
+                modules::codex_account::save_quick_config_for_base_dir_with_default(
+                    &context_profile,
+                    model_context_window,
+                    auto_compact_token_limit,
+                    None,
+                    None,
+                    None,
+                )
+            })
+            .await
+            .map_err(|error| format!("保存 Codex 实例上下文配置后台任务失败: {}", error))
+            .and_then(|result| result);
+            match context_result {
+                Ok(saved_context) => {
+                    quick_config.detected_model_context_window =
+                        saved_context.detected_model_context_window;
+                    quick_config.detected_auto_compact_token_limit =
+                        saved_context.detected_auto_compact_token_limit;
+                    quick_config.context_window_1m = saved_context.context_window_1m;
+                    quick_config.auto_compact_token_limit =
+                        saved_context.auto_compact_token_limit;
+                }
+                Err(error) => {
+                    restore_pending_model_catalog(
+                        &profile,
+                        previous_pending_catalog.as_ref(),
+                    )?;
+                    return Err(error);
+                }
+            }
+        }
         let result = codex_update_instance(
-            instance_id, name, working_dir, extra_args, bind_account_id, model_routing,
+            instance_id.clone(), name, working_dir, extra_args, bind_account_id, model_routing,
             follow_local_account, launch_mode, app_speed, auto_sync_threads, Some(true),
         ).await;
         return match result {
             Ok(instance) => Ok(CodexInstanceConfigurationSaveResult { instance, quick_config }),
             Err(error) => {
-                let path = profile.join(PENDING_MODEL_CATALOG_FILE);
-                let rollback = match previous {
-                    Some(previous) => modules::atomic_write::write_string_atomic(
-                        &path, &serde_json::to_string_pretty(&previous).map_err(|e| e.to_string())?,
-                    ),
-                    None => modules::atomic_write::remove_file_locked(&path).map(|_| ()),
+                let context_rollback = if update_context_override == Some(true) {
+                    codex_save_instance_quick_config(
+                        instance_id,
+                        previous_quick_config.detected_model_context_window,
+                        previous_quick_config.detected_auto_compact_token_limit,
+                        None,
+                        None,
+                        None,
+                    )
+                    .await
+                    .map(|_| ())
+                } else {
+                    Ok(())
                 };
-                rollback.map_err(|rollback| format!("{error}; 恢复待生效配置失败: {rollback}"))?;
-                Err(error)
+                let pending_rollback =
+                    restore_pending_model_catalog(&profile, previous_pending_catalog.as_ref());
+                match (context_rollback, pending_rollback) {
+                    (Ok(()), Ok(())) => Err(error),
+                    (context_result, pending_result) => Err(format!(
+                        "{}; 恢复配置失败: context={:?}, pending={:?}",
+                        error,
+                        context_result.err(),
+                        pending_result.err()
+                    )),
+                }
             }
         };
     }
     let previous_quick_config = codex_get_instance_quick_config(instance_id.clone()).await?;
-    let saved_quick_config = codex_save_instance_model_catalog(
-        instance_id.clone(),
-        experimental_model_catalog_enabled,
-        experimental_model_catalog_models,
-        experimental_model_catalog_default_model_id,
-    )
-    .await?;
+    let saved_quick_config = if update_context_override == Some(true) {
+        codex_save_instance_quick_config(
+            instance_id.clone(),
+            model_context_window,
+            auto_compact_token_limit,
+            Some(experimental_model_catalog_enabled),
+            Some(experimental_model_catalog_models),
+            experimental_model_catalog_default_model_id,
+        )
+        .await?
+    } else {
+        codex_save_instance_model_catalog(
+            instance_id.clone(),
+            experimental_model_catalog_enabled,
+            experimental_model_catalog_models,
+            experimental_model_catalog_default_model_id,
+        )
+        .await?
+    };
 
     let update_result = codex_update_instance(
         instance_id.clone(),

@@ -878,6 +878,37 @@
   padding: 16px 24px;
 }
 
+.codex-launch-preview-context-config-modal {
+  width: min(560px, calc(100vw - 40px));
+  max-width: 560px;
+  max-height: calc(100vh - 40px);
+}
+
+.codex-launch-preview-context-config-modal .modal-header {
+  padding: 18px 22px 16px;
+}
+
+.codex-launch-preview-context-config-modal .modal-body {
+  flex: 0 1 auto;
+  padding: 18px 22px;
+  overflow-y: auto;
+}
+
+.codex-launch-preview-context-config-modal .modal-footer {
+  padding: 14px 22px;
+}
+
+.codex-launch-preview-context-config-modal .codex-context-override-editor {
+  gap: 14px;
+}
+
+.codex-launch-preview-context-config-modal
+  .codex-context-override-preset
+  .single-select-dropdown-trigger {
+  min-height: 40px;
+  border-radius: 10px;
+}
+
 @media (max-width: 900px) {
   .codex-launch-preview-summary-head {
     align-items: stretch;
@@ -1038,5 +1069,40 @@
 
   .codex-launch-preview-footer-primary {
     justify-content: flex-start;
+  }
+}
+
+.codex-context-override-editor {
+  display: grid;
+  gap: 18px;
+}
+
+.codex-context-override-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.codex-context-override-fields label {
+  display: grid;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .codex-launch-preview-context-config-modal {
+    width: min(440px, calc(100vw - 24px));
+  }
+
+  .codex-launch-preview-context-config-modal .modal-header,
+  .codex-launch-preview-context-config-modal .modal-body,
+  .codex-launch-preview-context-config-modal .modal-footer {
+    padding-inline: 16px;
+  }
+
+  .codex-context-override-fields {
+    grid-template-columns: 1fr;
   }
 }

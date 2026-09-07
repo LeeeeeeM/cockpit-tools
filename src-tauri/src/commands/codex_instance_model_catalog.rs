@@ -69,6 +69,20 @@ pub(super) fn save_pending_model_catalog(
     Ok(config)
 }
 
+pub(super) fn restore_pending_model_catalog(
+    profile: &Path,
+    previous: Option<&PendingModelCatalog>,
+) -> Result<(), String> {
+    let path = profile.join(PENDING_MODEL_CATALOG_FILE);
+    match previous {
+        Some(previous) => modules::atomic_write::write_string_atomic(
+            &path,
+            &serde_json::to_string_pretty(previous).map_err(|error| error.to_string())?,
+        ),
+        None => modules::atomic_write::remove_file_locked(&path).map(|_| ()),
+    }
+}
+
 pub(super) fn apply_pending_model_catalog(profile: &Path) -> Result<(), String> {
     let Some(draft) = read_pending_model_catalog(profile)? else {
         return Ok(());

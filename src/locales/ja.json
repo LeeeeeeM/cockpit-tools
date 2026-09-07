@@ -1335,6 +1335,10 @@
     "copyToken": "トークンをコピー",
     "deleteAccount": "アカウントを削除",
     "confirmDelete": "アカウント {{email}} を削除してもよろしいですか？",
+    "badge": {
+      "gcpTos": "GCP ToS アカウント",
+      "gcpTosTitle": "GCP ToS アカウント"
+    },
     "columns": {
       "email": "メールアドレス",
       "subscription": "サブスクリプション",
@@ -1993,6 +1997,14 @@
     "other_group": "その他のモデル"
   },
   "codex": {
+    "teamHistory": {
+      "title": "以前の Team クォータ（ローカルスナップショット）",
+      "unknown": "過去のリセット時刻はありません",
+      "hint": "シート削除前の残りクォータであり、現在利用可能なクォータではありません",
+      "elapsed": "リセット済みの見込みです。シート復元後に確認してください",
+      "resetIn": "リセット予定：{{duration}}",
+      "observed": "スナップショット取得日時：{{time}}"
+    },
     "oauthPolicy": {
       "globalTitle": "サードパーティの app-server を許可",
       "globalDescription": "有効にすると現在のポリシー概要が表示されます。「管理」から Codex OAuth アカウントを一括または個別に設定できます。",
@@ -2022,6 +2034,30 @@
       "applyBatch": "選択項目に適用"
     },
     "title": "Codex アカウント管理",
+    "contextOverride": {
+      "title": "コンテキスト管理",
+      "description": "モデル、並び順、既定モデル、推論レベルは公式カタログに従います。手動設定した場合のみコンテキストを上書きします。",
+      "dialogDescription": "現在の Codex インスタンス内の全アカウントに適用され、アカウントを切り替えても維持されます。公式設定、プリセット、またはカスタムを選択してください。",
+      "followOfficial": "公式に従う",
+      "custom": "カスタムコンテキスト",
+      "automatic": "自動",
+      "adjust": "コンテキストを調整",
+      "manage": "コンテキストを管理",
+      "apply": "コンテキストを適用"
+    },
+    "modelManagement": {
+      "title": "モデル管理",
+      "enabled": "有効",
+      "disabled": "公式に従う",
+      "enable": "モデル管理を有効化",
+      "disable": "モデル管理を無効化",
+      "manage": "モデルを管理",
+      "disabledDescription": "既定では無効です。無効時はモデル、並び順、既定モデル、推論レベルが公式カタログに従います。",
+      "enabledDescription": "設定済みモデルカタログが有効です。モデルを追加・削除できますが、一覧は公式カタログに自動追従しません。",
+      "enableConfirmTitle": "モデル管理を有効にしますか？",
+      "enableConfirmDescription": "有効にすると、Codex はここで設定したモデルカタログを使用します。モデルを調整できますが、一覧は公式に自動追従しません。",
+      "enableConfirmAction": "有効にして設定"
+    },
     "experimentalModelCatalog": {
       "title": "表示モデル",
       "description": "表示モデル、推論強度、コンテキストウィンドウ、圧縮しきい値を一元管理します。",
@@ -2040,6 +2076,7 @@
         "followOfficial": "公式に従う",
         "operation": "操作",
         "manage": "管理",
+        "resetDefaults": "既定に戻す",
         "inheritHint": "公式モデルは能力フィールドを維持し、カスタムモデルは汎用テンプレートを使用します。表示モデルは追加・削除できます。",
         "validation": {
           "required": "モデルを少なくとも 1 つ残してください。",

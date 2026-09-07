@@ -2071,12 +2071,17 @@ pub async fn switch_account_internal(account_id: &str) -> Result<Account, String
         modules::logger::log_warn(&format!("[Switch] 更新默认实例绑定账号失败: {}", e));
     }
 
-    // 6. 对齐默认实例启动逻辑：按默认实例目录关闭受管进程，再同步注入所有存在的 Antigravity 目录
+    // 6. 对齐默认实例启动逻辑：按默认实例目录关闭受管进程，再同步注入已有客户端目录。
+    // 默认目录必须成功，额外目录失败只记录日志。
     let default_dir = modules::instance::get_default_user_data_dir()?;
     let default_dir_str = default_dir.to_string_lossy().to_string();
     modules::process::close_antigravity_instances(&[default_dir_str], 20)?;
     let _ = modules::instance::update_default_pid(None);
+    modules::instance::inject_account_to_profile_with_account(&default_dir, &account)?;
     for target_dir in modules::instance::get_all_antigravity_user_data_dirs() {
+        if target_dir == default_dir {
+            continue;
+        }
         if let Err(e) = modules::instance::inject_account_to_profile_with_account(&target_dir, &account) {
             modules::logger::log_warn(&format!("[Switch] 注入目录 {} 失败: {}", target_dir.display(), e));
         } else {
@@ -2389,7 +2394,12 @@ pub async fn switch_account_local_no_restart(account_id: &str) -> Result<Account
         ));
     }
 
+    let default_dir = modules::instance::get_default_user_data_dir()?;
+    modules::instance::inject_account_to_profile_with_account(&default_dir, &account)?;
     for target_dir in modules::instance::get_all_antigravity_user_data_dirs() {
+        if target_dir == default_dir {
+            continue;
+        }
         if let Err(e) = modules::instance::inject_account_to_profile_with_account(&target_dir, &account) {
             modules::logger::log_warn(&format!(
                 "[Switch][NoRestart] 注入目录 {} 失败: {}",

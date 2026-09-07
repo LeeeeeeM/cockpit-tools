@@ -1614,7 +1614,11 @@ pub async fn switch_account_internal(account_id: &str) -> Result<Account, String
     let default_dir_str = default_dir.to_string_lossy().to_string();
     modules::process::close_antigravity_instances(&[default_dir_str], 20)?;
     let _ = modules::instance::update_default_pid(None);
+    modules::instance::inject_account_to_profile(&default_dir, account_id)?;
     for target_dir in modules::instance::get_all_antigravity_user_data_dirs() {
+        if target_dir == default_dir {
+            continue;
+        }
         if let Err(e) = modules::instance::inject_account_to_profile(&target_dir, account_id) {
             modules::logger::log_warn(&format!("[Switch] 注入目录 {} 失败: {}", target_dir.display(), e));
         }
@@ -1925,7 +1929,12 @@ pub async fn switch_account_local_no_restart(account_id: &str) -> Result<Account
         ));
     }
 
+    let default_dir = modules::instance::get_default_user_data_dir()?;
+    modules::instance::inject_account_to_profile(&default_dir, account_id)?;
     for target_dir in modules::instance::get_all_antigravity_user_data_dirs() {
+        if target_dir == default_dir {
+            continue;
+        }
         if let Err(e) = modules::instance::inject_account_to_profile(&target_dir, account_id) {
             modules::logger::log_warn(&format!(
                 "[Switch][NoRestart] 注入目录 {} 失败: {}",

@@ -45,12 +45,6 @@ pub struct CodexExperimentalModelDefinition {
     /// None 表示跟随官方推理强度；Some 表示用户自定义可选推理强度集合。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reasoning_efforts: Option<Vec<String>>,
-    /// None 表示跟随模型目录元数据；Some 表示用户为该模型指定上下文窗口。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub context_window: Option<i64>,
-    /// None 表示跟随模型目录元数据；Some 表示用户为该模型指定自动压缩阈值。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auto_compact_token_limit: Option<i64>,
 }
 
 /// Codex config.toml 快捷配置
@@ -75,6 +69,12 @@ pub struct CodexQuickConfig {
     /// 当前可见模型目录中写入 Codex config.toml 的默认模型；None 表示不强制指定。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub experimental_model_catalog_default_model_id: Option<String>,
+    /// 当前版本内置的模型目录，用于在编辑器中恢复 Cockpit 默认配置。
+    #[serde(default)]
+    pub experimental_model_catalog_reset_models: Vec<CodexExperimentalModelDefinition>,
+    /// 恢复 Cockpit 默认配置时使用的默认模型。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub experimental_model_catalog_reset_default_model_id: Option<String>,
     /// 官方 Codex 实验性上下文管理开关；缺失时严格按官方默认关闭处理。
     #[serde(default)]
     pub context_management_experimental_mode: bool,
@@ -497,14 +497,14 @@ impl CodexAccount {
             .is_some_and(|h| h.user_id != *user_id || h.account_id != *account_id)
         {
             self.team_quota_history = None;
+            return;
         }
         let Some(quota) = &self.quota else { return };
         let Some(raw) = &quota.raw_data else { return };
-        // Use the response identity and plan, not a subsequently refreshed token label.
-        if raw.get("plan_type").and_then(|v| v.as_str()) != Some("team")
-            || raw.get("user_id").and_then(|v| v.as_str()) != Some(user_id.as_str())
-            || raw.get("account_id").and_then(|v| v.as_str()) != Some(account_id.as_str())
-        {
+        // The usage response identifies the plan but does not consistently include
+        // user/workspace IDs. The quota belongs to this already validated account;
+        // scope the snapshot with the account identity stored alongside it.
+        if raw.get("plan_type").and_then(|v| v.as_str()) != Some("team") {
             return;
         }
         let Some(observed_at) = self.usage_updated_at.filter(|v| *v > 0) else {
@@ -691,7 +691,7 @@ mod tests {
             "hourly_percentage": 0, "weekly_percentage": 10,
             "hourly_reset_time": reset, "weekly_reset_time": reset.map(|v| v + 1000),
             "hourly_window_present": reset.is_some(), "weekly_window_present": reset.is_some(),
-            "raw_data": {"plan_type": plan, "user_id": "user-a", "account_id": "space-a"}
+            "raw_data": {"plan_type": plan}
         }))
         .unwrap()
     }
@@ -753,12 +753,16 @@ mod tests {
     }
 
     #[test]
-    fn team_history_rejects_wrong_user_and_missing_windows() {
+    fn team_history_requires_account_identity_and_reset_windows() {
+        let mut missing_identity = history_account();
+        missing_identity.user_id = None;
+        missing_identity.replace_quota_preserving_team_history(
+            history_quota("team", Some(200)),
+            100,
+        );
+        assert!(missing_identity.team_quota_history.is_none());
+
         let mut account = history_account();
-        let mut wrong_user = history_quota("team", Some(200));
-        wrong_user.raw_data.as_mut().unwrap()["user_id"] = serde_json::json!("user-b");
-        account.replace_quota_preserving_team_history(wrong_user, 100);
-        assert!(account.team_quota_history.is_none());
         account.replace_quota_preserving_team_history(history_quota("team", None), 110);
         assert!(account.team_quota_history.is_none());
     }

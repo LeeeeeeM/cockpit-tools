@@ -9,8 +9,7 @@
 
 .codex-experimental-model-summary__header,
 .codex-experimental-model-editor__header,
-.codex-experimental-model-manager-modal__header,
-.codex-experimental-model-custom-context-modal__header {
+.codex-experimental-model-manager-modal__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -55,7 +54,6 @@
     18px
     minmax(130px, 1.2fr)
     minmax(180px, 1.8fr)
-    minmax(96px, 0.8fr)
     minmax(110px, 0.9fr)
     52px;
   align-items: center;
@@ -71,7 +69,6 @@
     minmax(180px, 1.7fr)
     64px
     minmax(90px, 0.75fr)
-    minmax(105px, 0.85fr)
     52px;
 }
 
@@ -121,8 +118,7 @@
 
 .codex-experimental-model-summary__name,
 .codex-experimental-model-summary__row code,
-.codex-experimental-model-summary__reasoning,
-.codex-experimental-model-summary__context {
+.codex-experimental-model-summary__reasoning {
   min-width: 0;
   overflow: hidden;
   color: var(--text-primary);
@@ -131,8 +127,7 @@
   white-space: nowrap;
 }
 
-.codex-experimental-model-summary__row code,
-.codex-experimental-model-summary__context {
+.codex-experimental-model-summary__row code {
   color: var(--text-muted);
   font-size: 10px;
 }
@@ -203,8 +198,7 @@
   border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 28%, transparent);
 }
 
-.codex-experimental-model-manager-overlay,
-.codex-experimental-model-custom-context-overlay {
+.codex-experimental-model-manager-overlay {
   position: fixed;
   inset: 0;
   display: flex;
@@ -220,13 +214,7 @@
   padding: 20px;
 }
 
-.codex-experimental-model-custom-context-overlay {
-  z-index: 10080;
-  background: rgb(15 23 42 / 34%);
-}
-
-.codex-experimental-model-manager-modal,
-.codex-experimental-model-custom-context-modal {
+.codex-experimental-model-manager-modal {
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -244,18 +232,11 @@
   padding: 18px 22px 20px;
 }
 
-.codex-experimental-model-custom-context-modal {
-  width: min(460px, calc(100vw - 48px));
-  padding: 18px;
-}
-
-.codex-experimental-model-manager-modal__header,
-.codex-experimental-model-custom-context-modal__header {
+.codex-experimental-model-manager-modal__header {
   margin-bottom: 10px;
 }
 
-.codex-experimental-model-manager-modal__header h3,
-.codex-experimental-model-custom-context-modal__header h3 {
+.codex-experimental-model-manager-modal__header h3 {
   margin: 0;
   color: var(--text-primary);
   font-size: 16px;
@@ -312,7 +293,6 @@
     minmax(180px, 1.6fr)
     minmax(140px, 1.2fr)
     minmax(120px, 1fr)
-    minmax(130px, 1fr)
     64px;
   align-items: center;
   gap: 10px;
@@ -326,7 +306,6 @@
     minmax(190px, 1.4fr)
     minmax(140px, 1.1fr)
     76px
-    minmax(130px, 1fr)
     minmax(130px, 1fr)
     64px;
   align-items: center;
@@ -352,13 +331,12 @@
   text-align: center;
 }
 
-.codex-experimental-model-editor__table-head.has-source > span:nth-child(5),
-.codex-experimental-model-editor__table-head.has-source > span:nth-child(6) {
+.codex-experimental-model-editor__table-head.has-source > span:nth-child(5) {
   text-align: left;
   padding-left: 2px;
 }
 
-.codex-experimental-model-editor__table-head.has-source > span:nth-child(7) {
+.codex-experimental-model-editor__table-head.has-source > span:nth-child(6) {
   text-align: center;
 }
 
@@ -438,7 +416,6 @@
 .codex-experimental-model-editor__fields > label,
 .codex-experimental-model-editor__source,
 .codex-experimental-model-editor__reasoning,
-.codex-experimental-model-editor__context,
 .codex-experimental-model-editor__operation {
   display: flex;
   min-width: 0;
@@ -457,9 +434,7 @@
 }
 
 .codex-experimental-model-editor__fields input,
-.codex-experimental-model-editor__reasoning-trigger,
-.codex-experimental-model-editor__context-trigger,
-.codex-experimental-model-custom-context-modal input {
+.codex-experimental-model-editor__reasoning-trigger {
   width: 100%;
   min-width: 0;
   min-height: 36px;
@@ -473,26 +448,21 @@
 }
 
 .codex-experimental-model-editor__fields input:focus,
-.codex-experimental-model-custom-context-modal input:focus,
-.codex-experimental-model-editor__reasoning-trigger:focus-visible,
-.codex-experimental-model-editor__context-trigger:focus-visible {
+.codex-experimental-model-editor__reasoning-trigger:focus-visible {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent);
 }
 
-.codex-experimental-model-editor__fields input.has-error,
-.codex-experimental-model-custom-context-modal input.has-error {
+.codex-experimental-model-editor__fields input.has-error {
   border-color: var(--danger, #ef4444);
 }
 
-.codex-experimental-model-editor__reasoning-picker,
-.codex-experimental-model-editor__context-picker {
+.codex-experimental-model-editor__reasoning-picker {
   position: relative;
   min-width: 0;
 }
 
-.codex-experimental-model-editor__reasoning-trigger,
-.codex-experimental-model-editor__context-trigger {
+.codex-experimental-model-editor__reasoning-trigger {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -501,21 +471,18 @@
   text-align: left;
 }
 
-.codex-experimental-model-editor__reasoning-trigger > span,
-.codex-experimental-model-editor__context-trigger > span {
+.codex-experimental-model-editor__reasoning-trigger > span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.codex-experimental-model-editor__reasoning-trigger > svg,
-.codex-experimental-model-editor__context-trigger > svg {
+.codex-experimental-model-editor__reasoning-trigger > svg {
   flex: 0 0 auto;
 }
 
-.codex-experimental-model-editor__reasoning-menu,
-.codex-experimental-model-editor__context-menu {
+.codex-experimental-model-editor__reasoning-menu {
   position: absolute;
   z-index: 8;
   top: calc(100% + 4px);
@@ -532,8 +499,7 @@
   box-shadow: 0 10px 28px rgb(15 23 42 / 20%);
 }
 
-.codex-experimental-model-editor__reasoning-option,
-.codex-experimental-model-editor__context-option {
+.codex-experimental-model-editor__reasoning-option {
   width: 100%;
   min-height: 32px;
   padding: 6px 8px;
@@ -552,15 +518,8 @@
   gap: 8px;
 }
 
-.codex-experimental-model-editor__context-option {
-  display: flex;
-  align-items: center;
-}
-
 .codex-experimental-model-editor__reasoning-option:hover,
-.codex-experimental-model-editor__reasoning-option.is-selected,
-.codex-experimental-model-editor__context-option:hover,
-.codex-experimental-model-editor__context-option.is-selected {
+.codex-experimental-model-editor__reasoning-option.is-selected {
   background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
@@ -618,51 +577,20 @@
   line-height: 1.45;
 }
 
-.codex-experimental-model-custom-context-modal__body {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding: 10px 0 18px;
-}
-
-.codex-experimental-model-custom-context-modal__body label {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.codex-experimental-model-custom-context-modal__body label > span {
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.codex-experimental-model-custom-context-modal input[type="number"] {
-  appearance: textfield;
-}
-
-.codex-experimental-model-custom-context-modal input::-webkit-inner-spin-button,
-.codex-experimental-model-custom-context-modal
-  input::-webkit-outer-spin-button {
-  margin: 0;
-  appearance: none;
-}
-
-.codex-experimental-model-custom-context-modal__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-light);
-}
-
 /* Add Models Dropdown Menu */
+.codex-experimental-model-editor__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .codex-experimental-model-editor__add-wrap {
   position: relative;
 }
 
+.codex-experimental-model-editor__reset-btn,
 .codex-experimental-model-editor__add-btn {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -678,10 +606,17 @@
   transition: all 0.15s ease;
 }
 
+.codex-experimental-model-editor__reset-btn:hover:not(:disabled),
 .codex-experimental-model-editor__add-btn:hover:not(:disabled) {
   border-color: var(--primary);
   color: var(--primary);
   background: color-mix(in srgb, var(--primary) 8%, var(--bg-tertiary));
+}
+
+.codex-experimental-model-editor__reset-btn:disabled,
+.codex-experimental-model-editor__add-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .codex-experimental-model-editor__add-btn svg.is-open {
@@ -906,15 +841,4 @@
     min-width: 620px;
   }
 
-  .codex-experimental-model-custom-context-overlay {
-    padding: 12px;
-  }
-
-  .codex-experimental-model-custom-context-modal {
-    width: 100%;
-  }
-
-  .codex-experimental-model-custom-context-modal__body {
-    grid-template-columns: 1fr;
-  }
 }

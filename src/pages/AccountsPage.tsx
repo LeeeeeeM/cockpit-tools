@@ -31,8 +31,6 @@ import {
   getAntigravityTierBadge,
   getQuotaClass,
   formatResetTimeDisplay,
-  isGcpTosAccount,
-  getAccountProjectId,
 } from '../utils/account'
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
@@ -40,6 +38,7 @@ import { open as openFileDialog } from '@tauri-apps/plugin-dialog'
 import { useModalErrorState } from '../components/ModalErrorMessage'
 import { useEscClose } from '../hooks/useEscClose'
 import { useEnterConfirm } from '../hooks/useEnterConfirm'
+import { AntigravityGcpTosBadge } from '../components/AntigravityGcpTosBadge'
 import {
   AccountGroup,
   getAccountGroups,
@@ -3177,17 +3176,7 @@ export function useAccountsPageController({ onNavigate }: AccountsPageProps) {
             <span className={`tier-badge ${tierBadge.className}`}>
               {tierBadge.label}
             </span>
-            {isGcpTosAccount(account) && (() => {
-              const projectId = getAccountProjectId(account)
-              return (
-                <span
-                  className="tier-badge gcp-tos"
-                  title={projectId ? `project: ${projectId}` : t('accounts.badge.gcpTosTitle', 'GCP ToS account')}
-                >
-                  {t('accounts.badge.gcpTos', 'GCP ToS')}
-                </span>
-              )
-            })()}
+            <AntigravityGcpTosBadge account={account} />
             {isPendingAntigravityAccount(account) && (
               <span className="status-pill warning">{t('codex.pendingAuth.badge', '待授权')}</span>
             )}
@@ -3837,17 +3826,7 @@ export function useAccountsPageController({ onNavigate }: AccountsPageProps) {
                 <span className={`tier-badge ${tierBadge.className}`}>
                   {tierBadge.label}
                 </span>
-                {isGcpTosAccount(account) && (() => {
-                  const projectId = getAccountProjectId(account)
-                  return (
-                    <span
-                      className="tier-badge gcp-tos"
-                      title={projectId ? `project: ${projectId}` : t('accounts.badge.gcpTosTitle', 'GCP ToS account')}
-                    >
-                      {t('accounts.badge.gcpTos', 'GCP ToS')}
-                    </span>
-                  )
-                })()}
+                <AntigravityGcpTosBadge account={account} />
                 {(() => {
                   const vBadge = getVerificationBadge(account)
                   return vBadge ? (

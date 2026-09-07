@@ -647,9 +647,13 @@ pub async fn switch_account(
     modules::process::close_antigravity_instances(&[default_dir_str], 20)?;
     let _ = modules::instance::update_default_pid(None);
 
-    // 5. 进程完全退出后，执行磁盘级别的文件注入
-    // 5.1 将账号 Token 同步注入所有存在的 Antigravity 目录
+    // 5. 进程完全退出后，先确保本次要启动的默认目录写入成功；
+    // 其他已存在客户端目录只做尽力同步，不能反向阻断主流程。
+    modules::instance::inject_account_to_profile_with_account(&default_dir, &account)?;
     for target_dir in modules::instance::get_all_antigravity_user_data_dirs() {
+        if target_dir == default_dir {
+            continue;
+        }
         if let Err(e) = modules::instance::inject_account_to_profile_with_account(&target_dir, &account) {
             modules::logger::log_warn(&format!("[Switch] 注入目录 {} 失败: {}", target_dir.display(), e));
         }
