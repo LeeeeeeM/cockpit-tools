@@ -2008,6 +2008,16 @@ pub async fn fetch_quota_with_fresh_token(
                 ));
                 account.clear_disabled();
             }
+            if let Some(gcp_tos) = payload.quota.is_gcp_tos {
+                if account.token.is_gcp_tos != Some(gcp_tos) {
+                    account.token.is_gcp_tos = Some(gcp_tos);
+                }
+            }
+            if let Some(ref project_id) = payload.quota.project_id {
+                if account.token.project_id.as_deref() != Some(project_id.as_str()) {
+                    account.token.project_id = Some(project_id.clone());
+                }
+            }
             account.quota_error = payload.error.map(|err| QuotaErrorInfo {
                 code: err.code,
                 message: err.message,
@@ -2066,7 +2076,7 @@ pub async fn switch_account_internal(account_id: &str) -> Result<Account, String
     let default_dir_str = default_dir.to_string_lossy().to_string();
     modules::process::close_antigravity_instances(&[default_dir_str], 20)?;
     let _ = modules::instance::update_default_pid(None);
-    modules::instance::inject_account_to_profile(&default_dir, account_id)?;
+    modules::instance::inject_account_to_profile_with_account(&default_dir, &account)?;
 
     // 7. 启动 Antigravity IDE（带默认实例自定义启动参数；启动失败不阻断切号，保持原行为）
     modules::logger::log_info("[Switch] 正在启动 Antigravity IDE 默认实例...");
@@ -2374,7 +2384,7 @@ pub async fn switch_account_local_no_restart(account_id: &str) -> Result<Account
     }
 
     let default_dir = modules::instance::get_default_user_data_dir()?;
-    modules::instance::inject_account_to_profile(&default_dir, account_id)?;
+    modules::instance::inject_account_to_profile_with_account(&default_dir, &account)?;
 
     modules::logger::log_info(&format!(
         "[Switch][NoRestart] 本地切号完成: {}",
@@ -2383,15 +2393,44 @@ pub async fn switch_account_local_no_restart(account_id: &str) -> Result<Account
     Ok(account)
 }
 
-/// 准备账号注入：确保 Token 新鲜并落盘
+/// 准备账号注入：确保 Token 新鲜并补齐必要元数据后落盘
 pub async fn prepare_account_for_injection(account_id: &str) -> Result<Account, String> {
     let mut account = load_account(account_id)?;
     let fresh_token = modules::oauth::ensure_fresh_token(&account.token)
         .await
         .map_err(|e| format!("Token 刷新失败: {}", e))?;
+    let mut token_changed = false;
     if fresh_token.access_token != account.token.access_token {
         modules::logger::log_info("[Account] Token 已刷新");
         account.token = fresh_token.clone();
+        token_changed = true;
+    }
+
+    // 全链路确保 is_gcp_tos 与 project_id 已被探测和沉淀
+    let needs_probe = account.token.is_gcp_tos.is_none()
+        || (account.token.is_gcp_tos == Some(true) && account.token.project_id.is_none());
+    if needs_probe {
+        modules::logger::log_info(&format!(
+            "[Account] 准备注入时发现缺少 GCP ToS 或 ProjectId 元数据，执行自动探测: {}",
+            account.email
+        ));
+        let meta =
+            modules::quota::fetch_project_metadata_for_token(&account.token, &account.email).await;
+        if let Some(gcp_tos) = meta.is_gcp_tos {
+            if account.token.is_gcp_tos != Some(gcp_tos) {
+                account.token.is_gcp_tos = Some(gcp_tos);
+                token_changed = true;
+            }
+        }
+        if let Some(project_id) = meta.project_id {
+            if account.token.project_id.as_deref() != Some(&project_id) {
+                account.token.project_id = Some(project_id);
+                token_changed = true;
+            }
+        }
+    }
+
+    if token_changed {
         save_account(&account)?;
     }
     Ok(account)
