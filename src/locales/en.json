@@ -2191,6 +2191,14 @@
     "other_group": "Other Models"
   },
   "codex": {
+    "teamHistory": {
+      "title": "Previous Team quota (local snapshot)",
+      "unknown": "No historical reset time",
+      "hint": "Remaining quota before seat removal, not current available quota",
+      "elapsed": "Expected to reset; verify after restoring the seat",
+      "resetIn": "Expected reset in {{duration}}",
+      "observed": "Snapshot captured: {{time}}"
+    },
     "title": "Codex Account",
     "oauthPolicy": {
       "globalTitle": "Allow third-party clients",

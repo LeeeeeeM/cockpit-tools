@@ -99,6 +99,15 @@ export interface CodexAccount {
   last_client_launch_at?: number | null;
   last_client_auth_instance_id?: string | null;
   quota?: CodexQuota;
+  team_quota_history?: {
+    user_id: string;
+    account_id: string;
+    observed_at: number;
+    hourly_reset_time?: number | null;
+    weekly_reset_time?: number | null;
+    hourly_percentage?: number | null;
+    weekly_percentage?: number | null;
+  };
   quota_error?: CodexQuotaErrorInfo;
   tags?: string[];
   created_at: number;
