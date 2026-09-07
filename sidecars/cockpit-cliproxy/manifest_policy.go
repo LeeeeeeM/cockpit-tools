@@ -1043,6 +1043,13 @@ func (p *requestPolicy) middleware() gin.HandlerFunc {
 		startedAt := time.Now()
 		requestID := ensureRequestID(c)
 		spec := p.lookupAPIKey(c.Request)
+		if diagnosticTransport(c.Request) == "websocket" && p.emitter != nil {
+			sink := newWebsocketUsageSink(requestID, func(payload usagePayload) {
+				p.tokenLimiter.addUsage(spec, effectiveUsageTotalTokens(payload.Usage))
+				p.emitter.emit(payload)
+			})
+			c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), websocketUsageContextKey, sink))
+		}
 		requestKind := requestKindFromPath(c.Request.URL.Path)
 		clientInstanceID := extractClientInstanceID(c.Request)
 		if clientInstanceID != "" {
@@ -1252,6 +1259,17 @@ func (p *requestPolicy) emitRequestCompleted(c *gin.Context, requestID string, s
 		return
 	}
 	p.tracker.releaseImageJobs(requestID)
+	if _, ok := c.Request.Context().Value(websocketUsageContextKey).(*websocketUsageSink); ok && status < http.StatusBadRequest {
+		// Gorilla writes the 101 handshake after hijacking, leaving Gin's
+		// status at 200. Rejected handshakes must still reach finalization.
+		// Transport completion is diagnostic-only. Per-execution callbacks own
+		// usage and may arrive after this handler returns.
+		p.tracker.mu.Lock()
+		delete(p.tracker.records, requestID)
+		delete(p.tracker.selectedAccounts, requestID)
+		p.tracker.mu.Unlock()
+		return
+	}
 	if payload, ok := p.tracker.finalize(requestID, usageFinalizeInput{
 		spec:          spec,
 		requestKind:   requestKind,
