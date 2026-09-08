@@ -18,9 +18,6 @@ use crate::models::{
 };
 use crate::modules;
 
-#[cfg(test)]
-use super::codex_instance_app_exit::idle_codex_profile_dirs_for_app_exit;
-pub use super::codex_instance_app_exit::restore_mixed_model_profiles_for_app_exit;
 use super::codex_instance_model_catalog::{
     apply_pending_model_catalog, read_pending_model_catalog, restore_pending_model_catalog,
     save_pending_model_catalog,
@@ -1305,47 +1302,6 @@ mod tests {
             display_name: "GPT-5".to_string(),
             reasoning_efforts: None,
         }]
-    }
-
-    #[test]
-    fn app_exit_preserves_running_profiles_even_when_routing_was_disabled_for_later() {
-        let profile = |id: &str, enabled: bool, pid: u32| InstanceProfile {
-            id: id.to_string(),
-            name: id.to_string(),
-            user_data_dir: format!("/test/{id}"),
-            working_dir: None,
-            extra_args: String::new(),
-            bind_account_id: None,
-            model_routing: Some(CodexInstanceModelRouting {
-                enabled,
-                ..Default::default()
-            }),
-            launch_mode: InstanceLaunchMode::App,
-            app_speed: CodexAppSpeed::Standard,
-            created_at: 1,
-            last_launched_at: None,
-            last_pid: Some(pid),
-        };
-        let profiles = vec![
-            profile("active", true, 11),
-            profile("disabled-for-later", false, 12),
-            profile("stopped", true, 13),
-        ];
-        let idle = idle_codex_profile_dirs_for_app_exit(
-            PathBuf::from("/test/default"),
-            Some(10),
-            profiles.clone(),
-            |pid, _| matches!(pid, Some(10 | 11 | 12)),
-        );
-        assert_eq!(idle, vec![PathBuf::from("/test/stopped")]);
-        let all_idle = idle_codex_profile_dirs_for_app_exit(
-            PathBuf::from("/test/default"),
-            Some(10),
-            profiles,
-            |_, _| false,
-        );
-        assert_eq!(all_idle.len(), 4);
-        assert_eq!(all_idle[0], PathBuf::from("/test/default"));
     }
 
     #[tokio::test]

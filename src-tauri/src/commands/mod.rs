@@ -10,7 +10,6 @@ pub mod codebuddy_instance;
 pub mod codebuddy_session;
 pub mod codex;
 pub mod codex_instance;
-mod codex_instance_app_exit;
 mod codex_instance_model_catalog;
 mod codex_instance_routing;
 pub mod cursor;

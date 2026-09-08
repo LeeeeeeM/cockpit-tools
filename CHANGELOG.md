@@ -7,6 +7,12 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [Unreleased]
+
+### Changed
+
+- **Keep Codex mixed-routing configuration on Cockpit exit**: exiting Cockpit no longer scans Codex instances to restore their official configuration or clean up their model overrides. Existing injection and gateway shutdown handling is unchanged. If a profile still points to a stopped local gateway, direct Codex launches may fail to connect; after disabling mixed routing, launch Codex through Cockpit to apply the restored configuration.
+
 ## [1.3.44] - 2026-09-08
 
 ### Changed
