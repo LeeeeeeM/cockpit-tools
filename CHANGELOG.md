@@ -7,7 +7,13 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
-## [1.3.43] - 2026-09-08
+## [1.3.44] - 2026-09-08
+
+### Changed
+
+- **Fix Windows API Service startup crashes**: remove the Sidecar lifecycle paths introduced in 1.3.43 that could make the main Cockpit process exit while API Service was running, including the repeated Sidecar monitoring/recovery loop and additional port-owner inspection.
+- **Restore Codex API Service process-status behavior from 1.3.42**: remove the per-second Sidecar exit monitor and automatic restart triggered by process exits or status reads. An unexpected Sidecar exit is reported when status is read; manual restart, existing request retries, and account-pool failover remain available.
+- **Restore API Service port cleanup behavior from 1.3.42**: remove Sidecar command-line and parent-process ownership checks. Startup handles a detected old service as before; the existing Clear Port action terminates processes occupying the configured port and restarts the service if enabled, retaining the existing port-fallback behavior and confirmation text.
 
 ### Added
 

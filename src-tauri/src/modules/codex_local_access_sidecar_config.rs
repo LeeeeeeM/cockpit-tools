@@ -2016,8 +2016,6 @@ async fn start_legacy_gateway_locked(
     runtime.last_error = None;
     runtime.shutdown_sender = Some(shutdown_sender);
     runtime.task = Some(task);
-    runtime.sidecar_monitor_task = None;
-    runtime.sidecar_generation = None;
     runtime.sidecar_child = None;
     Ok(())
 }
