@@ -7,16 +7,18 @@ All notable changes to Cockpit Tools will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
-## [Unreleased]
+## [1.3.45] - 2026-09-08
 
 ### Fixed
 
+- **Keep DCP-injected quota data aligned with the Cockpit account pool**: quota snapshots now carry account plan types, transient account-file refresh or read failures preserve the last valid quota, and `0/0` is shown only when the account pool is confirmed empty. This prevents the injected quota panel from flickering between valid data and “no quota stats”.
+- **Prevent Windows crashes from stack overflow during Codex quota refreshes**: reduce main-thread stack usage during quota refreshes to prevent unexpected application exits during manual or automatic refreshes. Quota history and existing post-refresh behavior are preserved.
 - **Show the usage statistics area only on the Statistics & Logs tab**: the Service Overview, Client Key, Account Pool, and Models & Capabilities tabs no longer repeat the range picker, metric cards, or trend chart.
 - **Show account recovery feedback inside the account-issues dialog**: successful recovery now reports its result in the active dialog. Recovering the full collection also clears stale aggregate pool diagnostics left by older Sidecars, while single-account recovery preserves unrelated account issues.
-- **Prevent Windows stack overflow while refreshing Codex quotas**: reduce the large asynchronous task passed through the desktop command bridge and reserve an 8 MiB main-thread stack for Windows builds. Codex quota refreshes now share a bounded scheduler with at most two active accounts, sixteen queued accounts, per-account single-flight deduplication, and a two-minute timeout; completed tasks and waiters are removed immediately. Quota history and existing post-refresh behavior are preserved.
 
 ### Changed
 
+- **Prioritize manual Codex quota refreshes with bounded resource usage**: manual and background refreshes have independent lanes, each with at most one active account and sixteen queued accounts; duplicate requests for the same account share one refresh. Manual refreshes defer not-yet-started background work from the current round until the next round without interrupting requests already running. Queue waits and execution each have a two-minute timeout, task resources and waiters are released on completion, and busy, timeout, and interruption messages are localized.
 - **Run mixed-routing monitoring only for enabled instances**: enable monitoring when mixed routing is configured, stop its background checks and automatic recovery when disabled, and leave unrelated instances and the independent API Service untouched. Disabling a route does not interrupt an active Codex session; its configuration changes take effect on the next launch through Cockpit.
 - **Restore API Service process monitoring and guarded recovery**: detect unexpected Sidecar exits and retry recovery within the existing limits while the service is enabled. Port cleanup checks the Sidecar command line and parent ownership before stopping a process; manual restart, request retries, and account-pool failover remain available.
 - **Restore mixed-routing configuration cleanup on exit**: restore inactive previously managed profiles on Cockpit exit while preserving profiles still used by running Codex sessions. Ordinary profiles without mixed routing are not included in its process checks.
